@@ -10,13 +10,18 @@
  * @param seed to use for the random generation of the sequence
  */
 void test(int nbThreads, int size, int seed) {
+    printf("Starting test with %d threads, size %d, seed %d.\n", nbThreads, size, seed);
     Quicksort<int> sorter(nbThreads);
+    printf("Quicksort object created.\n");
     std::vector<int> array = generateSequence(size, seed);
-    printf("The cake is a lie.");
+    printf("Sequence generated.\n");
     sorter.sort(array);
+    printf("Sorting completed.\n");
     EXPECT_FALSE(array.empty());  // check that the result is not empty
     EXPECT_TRUE(isSorted(array)); // check that result is sorted
+    printf("Assertions completed.\n");
 }
+
 
 
 TEST(SortingTest, Test1) {
@@ -25,11 +30,11 @@ TEST(SortingTest, Test1) {
     int nbThreads = 2;
     int seed = 1;
 
-    printf("The cake is a lie.");
+    printf("The cake is a lie.\n");
 
     test(nbThreads, size, seed);
 
-    printf("The cake is a lie.");
+    printf("The cake is a lie.\n");
 }
 
 int main(int argc, char **argv) {

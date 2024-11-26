@@ -23,14 +23,15 @@ class Quicksort : public MultithreadedSort<T> {
      * @param array is the sequence to sort
      */
     void sort(std::vector<T> &array) override {
-        for(unsigned int i = 0; i < this->nbThreads; i++) {
+        for (unsigned int i = 0; i < this->nbThreads; i++) {
             workers.emplace_back(&Quicksort::workerThread, this);
         }
 
         mutex.lock();
-        tasks.push(Task{&array, 0, (int)( array.size() - 1)});
+        tasks.push(Task{&array, 0, (int)(array.size() - 1)});
         nbThreadsActive++;
         cv.notifyOne();
+        mutex.unlock();
 
         waitForCompletion();
     }
@@ -90,28 +91,26 @@ class Quicksort : public MultithreadedSort<T> {
             Task task(nullptr, 0, 0);
 
             mutex.lock();
-            while (tasks.empty() && !stop) {
+            while (tasks.empty()) {
+                if (stop) {
+                    mutex.unlock();
+                    return;
+                }
                 cv.wait(&mutex);
             }
 
-            if (stop) {
-                mutex.unlock();
-                return;
-            }
-
             task = tasks.front();
-
             tasks.pop();
-
             mutex.unlock();
 
             quicksort(*task.array, task.lo, task.hi);
 
             mutex.lock();
             nbThreadsActive--;
-            if(tasks.empty() && nbThreadsActive == 0) {
+            if (tasks.empty() && nbThreadsActive == 0) {
                 cvFinished.notifyOne();
             }
+            mutex.unlock();
         }
     };
 
@@ -120,7 +119,15 @@ class Quicksort : public MultithreadedSort<T> {
         while (nbThreadsActive > 0) {
             cvFinished.wait(&mutex);
         }
+        stop = true;
+        cv.notifyAll();
         mutex.unlock();
+
+        for (auto &worker : workers) {
+            if (worker.joinable()) {
+                worker.join();
+            }
+        }
     };
 };
 
