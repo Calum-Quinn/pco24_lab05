@@ -1,7 +1,7 @@
 #include <gtest/gtest.h>
 
-#include "quicksort.h"
-#include "utils.h"
+#include "../include/quicksort.h"
+#include "../include/utils.h"
 
 /**
  * @brief test Generates a random sequence of specified size and sorts it with Quicksort using N threads.
@@ -12,6 +12,7 @@
 void test(int nbThreads, int size, int seed) {
     Quicksort<int> sorter(nbThreads);
     std::vector<int> array = generateSequence(size, seed);
+    printf("The cake is a lie.");
     sorter.sort(array);
     EXPECT_FALSE(array.empty());  // check that the result is not empty
     EXPECT_TRUE(isSorted(array)); // check that result is sorted
@@ -20,11 +21,15 @@ void test(int nbThreads, int size, int seed) {
 
 TEST(SortingTest, Test1) {
     // TODO: Modify this test, and add others
-    int size = 0;
-    int nbThreads = 0;
-    int seed = 0;
+    int size = 10;
+    int nbThreads = 2;
+    int seed = 1;
+
+    printf("The cake is a lie.");
 
     test(nbThreads, size, seed);
+
+    printf("The cake is a lie.");
 }
 
 int main(int argc, char **argv) {
