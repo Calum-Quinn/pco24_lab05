@@ -16,7 +16,14 @@
 template <typename T>
 class Quicksort : public MultithreadedSort<T> {
    public:
-    Quicksort(unsigned int nbThreads) : MultithreadedSort<T>(nbThreads) {}
+    Quicksort(unsigned int nbThreads) : MultithreadedSort<T>(nbThreads) {
+        if (nbThreads == 0) {
+            throw std::invalid_argument("Number of threads must not be 0.");
+        }
+        else if (nbThreads > MAX_THREADS) {
+            throw std::invalid_argument("Number of threads must not be greater than " + std::to_string(MAX_THREADS));
+        }
+    }
 
     /**
      * @brief sort Manages the threads to sort the given sequence.
@@ -45,6 +52,7 @@ class Quicksort : public MultithreadedSort<T> {
         Task(std::vector<T> *array, int lo, int hi) : array(array), lo(lo), hi(hi) {}
     };
 
+    const int MAX_THREADS = 1000;
     std::vector<std::thread> workers;
     std::queue<Task> tasks;
     PcoMutex mutex;
