@@ -59,11 +59,12 @@ class Quicksort : public MultithreadedSort<T> {
 
         // On donne le travail à faire à un autre thread tant qu'il reste des threads disponibles
         if(nbThreadsActive < this->nbThreads) {
-            
+            mutex.lock();
             tasks.push(Task{&array, lo, p - 1});
             tasks.push(Task{&array, p + 1, hi});
             nbThreadsActive += 2;
             cv.notifyAll();
+            mutex.unlock();
         } else {
             quicksort(array, lo, p - 1);
             quicksort(array, p + 1, hi);
