@@ -105,7 +105,7 @@ class Quicksort : public MultithreadedSort<T> {
             // nbThreadsActive); nbThreadsActive += increment; nbThreadsActive
             // += 2; // DUBIOUS, SHOULD PROBABLY BE CHANGED TO CHECK IF 2 ARE
             // AVAILABLE
-            nbThreadsActive += 2;
+            nbThreadsActive++;
 
             // printf("Number of active threads: %d\n", nbThreadsActive);
 
