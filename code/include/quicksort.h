@@ -43,23 +43,11 @@ class Quicksort : public MultithreadedSort<T> {
         mutex.lock();
 
         tasks.push(Task{&array, 0, (int)(array.size() - 1)});
-
-        for(int i = 0; i < this->nbThreads; i++) {
-            // Get top task
-            Task task = tasks.front();
-            tasks.pop();
-
-            // Add a task for each thread
-            int p = partition(*task.array, task.lo, task.hi);
-
-            tasks.push(Task{task.array, task.lo, p - 1});
-            tasks.push(Task{task.array, p + 1, task.hi});
-        }
         
+
         mutex.unlock();
 
-        cv.notifyAll();
-
+        cv.notifyOne();
         // Wait for the array to be sorted
         waitForCompletion();
     }
@@ -83,7 +71,6 @@ class Quicksort : public MultithreadedSort<T> {
     std::queue<Task> tasks;            // List of tasks to be completed
     PcoMutex mutex;
     PcoConditionVariable cv, cvFinished;
-    PcoConditionVariable isFree, isNotEmpty;
     unsigned int nbThreadsActive = 0;
     bool stop = false;
 
@@ -101,9 +88,12 @@ class Quicksort : public MultithreadedSort<T> {
         // Partition the correct portion
         int p = partition(array, lo, hi);
 
-        // Sort the two partitions
-        quicksort(array, lo, p - 1);
-        quicksort(array, p + 1, hi);
+        mutex.lock();
+        tasks.push(Task{&array, lo, p - 1});
+        tasks.push(Task{&array, p + 1, hi});
+        mutex.unlock();
+
+        cv.notifyOne();
     };
 
     /**
@@ -126,6 +116,7 @@ class Quicksort : public MultithreadedSort<T> {
         }
         // Swap the pivot and the last element
         std::swap(array[i], array[hi]);
+
         return i;
     };
 
@@ -138,7 +129,8 @@ class Quicksort : public MultithreadedSort<T> {
             Task task(nullptr, 0, 0);
 
             mutex.lock();
-            while(tasks.empty()) {
+            // If there are no tasks to be completed
+            while (tasks.empty()) {
                 if (stop) {
                     mutex.unlock();
                     return;
@@ -179,6 +171,7 @@ class Quicksort : public MultithreadedSort<T> {
         mutex.lock();
         // While threads are working, wait
         while (!tasks.empty()) {
+            // printf("Waiting for completion\n");
             cvFinished.wait(&mutex);
         }
 
