@@ -126,11 +126,8 @@ class Quicksort : public MultithreadedSort<T> {
                 }
                 cv.wait(&mutex);
             }
-            mutex.unlock();
 
             task = get();
-
-            mutex.lock();
             nbThreadsActive++;
             mutex.unlock();
 
@@ -166,13 +163,11 @@ class Quicksort : public MultithreadedSort<T> {
      */
     Task get() {
         Task task(nullptr, 0, 0);
-        mutex.lock();
         while(tasks.empty()) {
             isNotEmpty.wait(&mutex);
         }
         task = tasks.front();
         tasks.pop();
-        mutex.unlock();
         isFree.notifyOne();
         return task;
     }
