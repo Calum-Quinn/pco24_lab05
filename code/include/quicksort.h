@@ -89,45 +89,38 @@ class Quicksort : public MultithreadedSort<T> {
         // Partition the correct portion
         int p = partition(array, lo, hi);
 
+        quicksort(array, lo, p - 1);
+        quicksort(array, p + 1, hi);
+    };
+
+    void splitWork(std::vector<T> &array, int lo, int hi) {
+        // Check if invalid indexes
+        if (lo >= hi || lo < 0) return;
+
+        int p = partition(array, lo, hi);
+
         sem.acquire();
-        // Check if there are available threads
+
         if (nbThreadsActive < this->nbThreads) {
-            // mutex.lock();
-            // printf("Available threads: %d\n", this->nbThreads -
-            // nbThreadsActive); Split the portion in 2 and add these portions
-            // to the list of tasks
+
             tasks.push(Task{&array, lo, p - 1});
             tasks.push(Task{&array, p + 1, hi});
 
-            // Update number of active threads depending on how many are
-            // available int increment = (nbThreadsActive + 1 < this->nbThreads)
-            // ? 2 : 1; printf("Increment: %d, active threads: %d\n", increment,
-            // nbThreadsActive); nbThreadsActive += increment; nbThreadsActive
-            // += 2; // DUBIOUS, SHOULD PROBABLY BE CHANGED TO CHECK IF 2 ARE
-            // AVAILABLE
-            nbThreadsActive +=2;
-
-            // printf("Number of active threads: %d\n", nbThreadsActive);
-
-            // if (increment == 1) {
-            //     cv.notifyOne();
-            // }
-            // else {
-            //     cv.notifyAll();
-            // }
+            nbThreadsActive += 2;
 
             cv.notifyOne();
-            // cv.notifyAll();
             sem.release();
+
+            printf("Just added two tasks\n");
+
         } else {
-            // printf("No available threads, threads: %d, active threads: %d\n",
-            // this->nbThreads, nbThreadsActive);
+
             sem.release();
-            // Split the portion in 2 and recursively call the function
+
             quicksort(array, lo, p - 1);
             quicksort(array, p + 1, hi);
         }
-    };
+    }
 
     /**
      * @brief partition devides the array into two partitions
@@ -182,19 +175,21 @@ class Quicksort : public MultithreadedSort<T> {
                 sem.release();
 
                 // Start the sorting process for the selected task
-                quicksort(*task.array, task.lo, task.hi);
+                splitWork(*task.array, task.lo, task.hi);
 
                 // printf("Just finished a task\n");
 
                 sem.acquire();
+
+                nbThreadsActive--;
             }
 
             // printf("Befor nbThreadsActive: %d, stop: %d, tasks.size: %zu\n",
             //        nbThreadsActive, stop, tasks.size());
 
-            nbThreadsActive--;
-
             if (tasks.empty()) {
+                printf("Active threads: %d / %d\n", nbThreadsActive,
+                       this->nbThreads);
                 if (nbThreadsActive == 0) cvFinished.notifyOne();
             }
             // printf("After nbThreadsActive: %d, stop: %d, tasks.size: %zu\n",

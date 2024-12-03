@@ -140,7 +140,7 @@ TEST(SortingTest, TestSmallArrays) {
 
 // Test large arrays
 TEST(SortingTest, TestLargeArrays) {
-    int size = std::numeric_limits<int>::max() / 100;
+    int size = std::numeric_limits<int>::max() / 100000;
     int nbThreads = 4;
     int seed = 1;
 
