@@ -56,7 +56,6 @@ class Quicksort : public MultithreadedSort<T> {
             tasks.push(Task{task.array, p + 1, task.hi});
         }
         
-
         mutex.unlock();
 
         cv.notifyAll();
@@ -84,6 +83,7 @@ class Quicksort : public MultithreadedSort<T> {
     std::queue<Task> tasks;            // List of tasks to be completed
     PcoMutex mutex;
     PcoConditionVariable cv, cvFinished;
+    PcoConditionVariable isFree, isNotEmpty;
     unsigned int nbThreadsActive = 0;
     bool stop = false;
 
@@ -126,7 +126,6 @@ class Quicksort : public MultithreadedSort<T> {
         }
         // Swap the pivot and the last element
         std::swap(array[i], array[hi]);
-
         return i;
     };
 
@@ -139,8 +138,7 @@ class Quicksort : public MultithreadedSort<T> {
             Task task(nullptr, 0, 0);
 
             mutex.lock();
-            // If there are no tasks to be completed
-            while (tasks.empty()) {
+            while(tasks.empty()) {
                 if (stop) {
                     mutex.unlock();
                     return;
@@ -181,7 +179,6 @@ class Quicksort : public MultithreadedSort<T> {
         mutex.lock();
         // While threads are working, wait
         while (!tasks.empty()) {
-            // printf("Waiting for completion\n");
             cvFinished.wait(&mutex);
         }
 
