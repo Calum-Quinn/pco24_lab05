@@ -18,7 +18,7 @@ template <typename T>
 class Quicksort : public MultithreadedSort<T> {
    public:
     Quicksort(unsigned int nbThreads)
-        : MultithreadedSort<T>(nbThreads), sem(1) {
+        : MultithreadedSort<T>(nbThreads) {
         // Check for invalid number of threads
         if (nbThreads == 0) {
             throw std::invalid_argument("Number of threads must not be 0.");
@@ -39,15 +39,15 @@ class Quicksort : public MultithreadedSort<T> {
             workers.emplace_back(&Quicksort::workerThread, this);
         }
 
-        // Add the entire array to the list of taks and notify a worker
-        sem.acquire();
+        // Add the entire array to the list of tasks and notify a worker
+        mutex.lock();
 
         tasks.push(Task{&array, 0, (int)(array.size() - 1)});
-        nbThreadsActive++;
+        
+
+        mutex.unlock();
+
         cv.notifyOne();
-
-        sem.release();
-
         // Wait for the array to be sorted
         waitForCompletion();
     }
@@ -70,7 +70,6 @@ class Quicksort : public MultithreadedSort<T> {
     std::vector<std::thread> workers;  // List of workers/threads
     std::queue<Task> tasks;            // List of tasks to be completed
     PcoMutex mutex;
-    PcoSemaphore sem;
     PcoConditionVariable cv, cvFinished;
     unsigned int nbThreadsActive = 0;
     bool stop = false;
@@ -89,44 +88,12 @@ class Quicksort : public MultithreadedSort<T> {
         // Partition the correct portion
         int p = partition(array, lo, hi);
 
-        sem.acquire();
-        // Check if there are available threads
-        if (nbThreadsActive < this->nbThreads) {
-            // mutex.lock();
-            // printf("Available threads: %d\n", this->nbThreads -
-            // nbThreadsActive); Split the portion in 2 and add these portions
-            // to the list of tasks
-            tasks.push(Task{&array, lo, p - 1});
-            tasks.push(Task{&array, p + 1, hi});
+        mutex.lock();
+        tasks.push(Task{&array, lo, p - 1});
+        tasks.push(Task{&array, p + 1, hi});
+        mutex.unlock();
 
-            // Update number of active threads depending on how many are
-            // available int increment = (nbThreadsActive + 1 < this->nbThreads)
-            // ? 2 : 1; printf("Increment: %d, active threads: %d\n", increment,
-            // nbThreadsActive); nbThreadsActive += increment; nbThreadsActive
-            // += 2; // DUBIOUS, SHOULD PROBABLY BE CHANGED TO CHECK IF 2 ARE
-            // AVAILABLE
-            nbThreadsActive +=2;
-
-            // printf("Number of active threads: %d\n", nbThreadsActive);
-
-            // if (increment == 1) {
-            //     cv.notifyOne();
-            // }
-            // else {
-            //     cv.notifyAll();
-            // }
-
-            cv.notifyOne();
-            // cv.notifyAll();
-            sem.release();
-        } else {
-            // printf("No available threads, threads: %d, active threads: %d\n",
-            // this->nbThreads, nbThreadsActive);
-            sem.release();
-            // Split the portion in 2 and recursively call the function
-            quicksort(array, lo, p - 1);
-            quicksort(array, p + 1, hi);
-        }
+        cv.notifyOne();
     };
 
     /**
@@ -170,36 +137,29 @@ class Quicksort : public MultithreadedSort<T> {
                 }
                 cv.wait(&mutex);
             }
-            mutex.unlock();
-
-            sem.acquire();
 
             // Select the first available task
             if (!tasks.empty()) {
                 task = tasks.front();
                 tasks.pop();
 
-                sem.release();
+                nbThreadsActive++;
+
+                mutex.unlock();
 
                 // Start the sorting process for the selected task
                 quicksort(*task.array, task.lo, task.hi);
 
-                // printf("Just finished a task\n");
-
-                sem.acquire();
+                mutex.lock();
+                
+                nbThreadsActive--;
             }
 
-            // printf("Befor nbThreadsActive: %d, stop: %d, tasks.size: %zu\n",
-            //        nbThreadsActive, stop, tasks.size());
-
-            nbThreadsActive--;
-
-            if (tasks.empty()) {
-                if (nbThreadsActive == 0) cvFinished.notifyOne();
+            if (tasks.empty() && nbThreadsActive == 0) {
+                cvFinished.notifyOne();
             }
-            // printf("After nbThreadsActive: %d, stop: %d, tasks.size: %zu\n",
-            //        nbThreadsActive, stop, tasks.size());
-            sem.release();
+
+            mutex.unlock();
         }
     };
 
