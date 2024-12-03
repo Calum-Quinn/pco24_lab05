@@ -17,13 +17,15 @@
 template <typename T>
 class Quicksort : public MultithreadedSort<T> {
    public:
-    Quicksort(unsigned int nbThreads) : MultithreadedSort<T>(nbThreads), MAX_TASKS(nbThreads) {
+    Quicksort(unsigned int nbThreads)
+        : MultithreadedSort<T>(nbThreads)/*, sem(1)*/ {
         // Check for invalid number of threads
         if (nbThreads == 0) {
             throw std::invalid_argument("Number of threads must not be 0.");
-        }
-        else if (nbThreads > MAX_THREADS) {
-            throw std::invalid_argument("Number of threads must not be greater than " + std::to_string(MAX_THREADS));
+        } else if (nbThreads > MAX_THREADS) {
+            throw std::invalid_argument(
+                "Number of threads must not be greater than " +
+                std::to_string(MAX_THREADS));
         }
     }
 
@@ -37,12 +39,8 @@ class Quicksort : public MultithreadedSort<T> {
             workers.emplace_back(&Quicksort::workerThread, this);
         }
 
-        // Add the entire array to the list of taks and notify a worker
-        mutex.lock();
-        tasks.push(Task{&array, 0, (int)(array.size() - 1)});
-        nbThreadsActive++;
-        cvFull.notifyOne();
-        mutex.unlock();
+        // Add the entire array to the list of tasks and notify a worker
+        put(Task{&array, 0, (int)(array.size() - 1)});
 
         // Wait for the array to be sorted
         waitForCompletion();
@@ -57,23 +55,25 @@ class Quicksort : public MultithreadedSort<T> {
         int lo;
         int hi;
 
-        Task(std::vector<T> *array, int lo, int hi) : array(array), lo(lo), hi(hi) {}
+        Task(std::vector<T> *array, int lo, int hi)
+            : array(array), lo(lo), hi(hi) {}
     };
 
-    const unsigned int MAX_THREADS = 1000; // Maximum number of threads so as not to overload the system
-    const unsigned int MAX_TASKS; 
-    std::vector<std::thread> workers; // List of workers/threads
-    std::queue<Task> tasks; // List of tasks to be completed
+    const int MAX_THREADS =
+        1000;  // Maximum number of threads so as not to overload the system
+    std::vector<std::thread> workers;  // List of workers/threads
+    std::queue<Task> tasks;            // List of tasks to be completed
     PcoMutex mutex;
-    PcoSemaphore sem{1};
-    PcoConditionVariable cvFull, cvFree, cvFinished;
+    PcoConditionVariable cv, cvFinished;
+    PcoConditionVariable isFree, isNotEmpty;
     unsigned int nbThreadsActive = 0;
     bool stop = false;
 
     /**
      * @brief quicksort is the actual sorting algorithm
      * @param array is the array to be sorted
-     * @param lo is the index of the beginning of the portion for the current thread
+     * @param lo is the index of the beginning of the portion for the current
+     * thread
      * @param hi is the index of the end of the portion for the current thread
      */
     void quicksort(std::vector<T> &array, int lo, int hi) {
@@ -83,80 +83,10 @@ class Quicksort : public MultithreadedSort<T> {
         // Partition the correct portion
         int p = partition(array, lo, hi);
 
-        mutex.lock();
-        while (tasks.size() >= MAX_TASKS) {
-            cvFree.wait(&mutex);
-        }
-        if (nbThreadsActive < this->nbThreads) {
-            tasks.push(Task{&array, lo, p - 1});
-            nbThreadsActive++;
-            cvFull.notifyOne();
-            mutex.unlock();
-            quicksort(array, p + 1, hi);
-        }
-        else {
-            mutex.unlock();
-            quicksort(array, lo, p - 1);
-            quicksort(array, p + 1, hi);
-        }
-
-        // for (int i = 1; i >= 0; --i) {
-        //     printf("Got here\n");
-        //     mutex.lock();
-        //     while (tasks.size() >= MAX_TASKS) {
-        //         cvFree.wait(&mutex);
-        //     }
-        //     printf("And here\n");
-        //     tasks.push(Task{&array, i ? lo : (p + 1), i ? (p - 1) : hi});
-        //     nbThreadsActive++;
-        //     cvFull.notifyOne();
-        //     mutex.unlock();
-        // }
-
-        // mutex.lock();
-        // while (tasks.size() == MAX_TASKS) {
-        //     cvFree.wait(&mutex);
-        // }
-
-        // tasks.push(Task{&array, lo, p - 1});
-        // nbThreadsActive++;
-        // cvFull.notifyOne();
-        // mutex.unlock();
-        // quicksort(array, p + 1, hi);
-
-        // // Check if there are available threads
-        // if(nbThreadsActive < this->nbThreads) {
-        //     // mutex.lock();
-        //     // printf("Available threads: %d\n", this->nbThreads - nbThreadsActive);
-        //     // Split the portion in 2 and add these portions to the list of tasks
-        //     tasks.push(Task{&array, lo, p - 1});
-        //     tasks.push(Task{&array, p + 1, hi});
-
-        //     // Update number of active threads depending on how many are available
-        //     // int increment = (nbThreadsActive + 1 < this->nbThreads) ? 2 : 1;
-        //     // printf("Increment: %d, active threads: %d\n", increment, nbThreadsActive);
-        //     // nbThreadsActive += increment;
-        //     // nbThreadsActive += 2; // DUBIOUS, SHOULD PROBABLY BE CHANGED TO CHECK IF 2 ARE AVAILABLE
-        //     nbThreadsActive++;
-
-        //     // printf("Number of active threads: %d\n", nbThreadsActive);
-
-        //     // if (increment == 1) {
-        //     //     cvFull.notifyOne();
-        //     // }
-        //     // else {
-        //     //     cvFull.notifyAll();
-        //     // }
-            
-        //     cvFull.notifyOne();
-        //     // cvFull.notifyAll();
-        // } else {
-        //     // printf("No available threads, threads: %d, active threads: %d\n", this->nbThreads, nbThreadsActive);
-        //     // Split the portion in 2 and recursively call the function
-        //     quicksort(array, lo, p - 1);
-        //     quicksort(array, p + 1, hi);
-        // }
-        // sem.release();
+        // printf("Going to add task\n");
+        put(Task{&array, lo, p - 1});
+        // printf("Added 1 task\n");
+        put(Task{&array, p + 1, hi});
     };
 
     /**
@@ -167,7 +97,7 @@ class Quicksort : public MultithreadedSort<T> {
      * @return
      */
     int partition(std::vector<T> &array, int lo, int hi) {
-        T pivot = array[hi]; // Define the last element as the pivot
+        T pivot = array[hi];  // Define the last element as the pivot
         int i = lo;
 
         for (int j = lo; j < hi; j++) {
@@ -179,39 +109,48 @@ class Quicksort : public MultithreadedSort<T> {
         }
         // Swap the pivot and the last element
         std::swap(array[i], array[hi]);
-
         return i;
     };
 
     /**
-     * @brief workerThread is the function executed by the threads that handle the tasks
+     * @brief workerThread is the function executed by the threads that handle
+     * the tasks
      */
     void workerThread() {
+        printf("Starting worker thread\n");
         while (true) {
             Task task(nullptr, 0, 0);
 
             mutex.lock();
-            // If there are no tasks to be completed
-            while(tasks.empty() && !stop) {
-                cvFull.wait(&mutex);
+            while(tasks.empty()) {
+                if (stop) {
+                    printf("Stopping worker\n");
+                    mutex.unlock();
+                    return;
+                }
+                cv.wait(&mutex);
             }
-            if (stop) {
-                mutex.unlock();
-                return;
-            }
+            mutex.unlock();
 
-            // Select the first available task
-            task = tasks.front();
-            tasks.pop();
-            cvFree.notifyOne();
+            printf("Getting task\n");
+
+            task = get();
+
+            // printf("Got task\n");
+
+            mutex.lock();
             nbThreadsActive++;
             mutex.unlock();
 
-            // Start the sorting process for the selected task
             quicksort(*task.array, task.lo, task.hi);
-            
+
             mutex.lock();
+
             nbThreadsActive--;
+            
+            mutex.unlock();
+
+            mutex.lock();
             if (tasks.empty() && nbThreadsActive == 0) {
                 cvFinished.notifyOne();
             }
@@ -220,26 +159,68 @@ class Quicksort : public MultithreadedSort<T> {
     };
 
     /**
-     * @brief waitForCompletion is executed by the main process to wait until the array is sorted
+     * @brief put is used to add a task to the buffer
+     * @param task is the task to be added
+     */
+    void put(Task task) {
+        // printf("About to lock mutex in put\n");
+        mutex.lock();
+        // printf("About to add task\n");
+        tasks.push(task);
+        // printf("Task added\n");
+        isNotEmpty.notifyOne();
+        mutex.unlock();
+    }
+
+    /**
+     * @brief get is to get the next task in the queue
+     */
+    Task get() {
+        Task task(nullptr, 0, 0);
+        mutex.lock();
+        while(tasks.empty()) {
+            isNotEmpty.wait(&mutex);
+        }
+        task = tasks.front();
+        tasks.pop();
+        mutex.unlock();
+        isFree.notifyOne();
+        return task;
+    }
+
+    /**
+     * @brief waitForCompletion is executed by the main process to wait until
+     * the array is sorted
      */
     void waitForCompletion() {
+        printf("Started waitForCompletion\n");
         mutex.lock();
         // While threads are working, wait
-        while (nbThreadsActive > 0 || !tasks.empty()) {
+        while (!tasks.empty()) {
+            printf("About to wait\n");
             cvFinished.wait(&mutex);
         }
 
+        printf("Received cvFinished\n");
+
         // Once all threads have finished, stop
         stop = true;
-        cvFull.notifyAll();
+        cv.notifyAll();
+
+        printf("Notified all\n");
+
         mutex.unlock();
 
         // Wait for thread termination
         for (auto &worker : workers) {
+            printf("Another worker\n");
             if (worker.joinable()) {
+                printf("About to join\n");
                 worker.join();
+                printf("Joined\n");
             }
         }
+        printf("Got here\n");
     };
 };
 
