@@ -18,7 +18,7 @@ template <typename T>
 class Quicksort : public MultithreadedSort<T> {
    public:
     Quicksort(unsigned int nbThreads)
-        : MultithreadedSort<T>(nbThreads)/*, sem(1)*/ {
+        : MultithreadedSort<T>(nbThreads) {
         // Check for invalid number of threads
         if (nbThreads == 0) {
             throw std::invalid_argument("Number of threads must not be 0.");
@@ -40,8 +40,13 @@ class Quicksort : public MultithreadedSort<T> {
         }
 
         // Add the entire array to the list of tasks and notify a worker
-        put(Task{&array, 0, (int)(array.size() - 1)});
+        mutex.lock();
 
+        tasks.push(Task{&array, 0, (int)(array.size() - 1)});
+        
+        mutex.unlock();
+
+        cv.notifyOne();
         // Wait for the array to be sorted
         waitForCompletion();
     }
@@ -83,8 +88,12 @@ class Quicksort : public MultithreadedSort<T> {
         // Partition the correct portion
         int p = partition(array, lo, hi);
 
-        put(Task{&array, lo, p - 1});
-        put(Task{&array, p + 1, hi});
+        mutex.lock();
+        tasks.push(Task{&array, lo, p - 1});
+        tasks.push(Task{&array, p + 1, hi});
+        mutex.unlock();
+
+        cv.notifyOne();
     };
 
     /**
@@ -127,50 +136,30 @@ class Quicksort : public MultithreadedSort<T> {
                 cv.wait(&mutex);
             }
 
-            task = get();
-            nbThreadsActive++;
-            mutex.unlock();
+            // Select the first available task
+            if (!tasks.empty()) {
+                task = tasks.front();
+                tasks.pop();
 
-            quicksort(*task.array, task.lo, task.hi);
+                nbThreadsActive++;
 
-            mutex.lock();
+                mutex.unlock();
 
-            nbThreadsActive--;
-            
-            mutex.unlock();
+                // Start the sorting process for the selected task
+                quicksort(*task.array, task.lo, task.hi);
 
-            mutex.lock();
+                mutex.lock();
+                
+                nbThreadsActive--;
+            }
+
             if (tasks.empty() && nbThreadsActive == 0) {
                 cvFinished.notifyOne();
             }
+
             mutex.unlock();
         }
     };
-
-    /**
-     * @brief put is used to add a task to the buffer
-     * @param task is the task to be added
-     */
-    void put(Task task) {
-        mutex.lock();
-        tasks.push(task);
-        isNotEmpty.notifyOne();
-        mutex.unlock();
-    }
-
-    /**
-     * @brief get is to get the next task in the queue
-     */
-    Task get() {
-        Task task(nullptr, 0, 0);
-        while(tasks.empty()) {
-            isNotEmpty.wait(&mutex);
-        }
-        task = tasks.front();
-        tasks.pop();
-        isFree.notifyOne();
-        return task;
-    }
 
     /**
      * @brief waitForCompletion is executed by the main process to wait until
