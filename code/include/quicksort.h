@@ -83,9 +83,7 @@ class Quicksort : public MultithreadedSort<T> {
         // Partition the correct portion
         int p = partition(array, lo, hi);
 
-        // printf("Going to add task\n");
         put(Task{&array, lo, p - 1});
-        // printf("Added 1 task\n");
         put(Task{&array, p + 1, hi});
     };
 
@@ -117,14 +115,12 @@ class Quicksort : public MultithreadedSort<T> {
      * the tasks
      */
     void workerThread() {
-        printf("Starting worker thread\n");
         while (true) {
             Task task(nullptr, 0, 0);
 
             mutex.lock();
             while(tasks.empty()) {
                 if (stop) {
-                    printf("Stopping worker\n");
                     mutex.unlock();
                     return;
                 }
@@ -132,11 +128,7 @@ class Quicksort : public MultithreadedSort<T> {
             }
             mutex.unlock();
 
-            printf("Getting task\n");
-
             task = get();
-
-            // printf("Got task\n");
 
             mutex.lock();
             nbThreadsActive++;
@@ -163,11 +155,8 @@ class Quicksort : public MultithreadedSort<T> {
      * @param task is the task to be added
      */
     void put(Task task) {
-        // printf("About to lock mutex in put\n");
         mutex.lock();
-        // printf("About to add task\n");
         tasks.push(task);
-        // printf("Task added\n");
         isNotEmpty.notifyOne();
         mutex.unlock();
     }
@@ -193,34 +182,24 @@ class Quicksort : public MultithreadedSort<T> {
      * the array is sorted
      */
     void waitForCompletion() {
-        printf("Started waitForCompletion\n");
         mutex.lock();
         // While threads are working, wait
         while (!tasks.empty()) {
-            printf("About to wait\n");
             cvFinished.wait(&mutex);
         }
-
-        printf("Received cvFinished\n");
 
         // Once all threads have finished, stop
         stop = true;
         cv.notifyAll();
 
-        printf("Notified all\n");
-
         mutex.unlock();
 
         // Wait for thread termination
         for (auto &worker : workers) {
-            printf("Another worker\n");
             if (worker.joinable()) {
-                printf("About to join\n");
                 worker.join();
-                printf("Joined\n");
             }
         }
-        printf("Got here\n");
     };
 };
 
