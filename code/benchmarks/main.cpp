@@ -19,7 +19,7 @@ void BenchmarkQuicksort(int size, int nthreads)
 
 static void BM_QS_MANYTHREADS(benchmark::State& state) {
     int nthreads = state.range(0);
-    int size = 50000;
+    int size = 500;
     for (auto _ : state) {
         BenchmarkQuicksort(size, nthreads);
     }
