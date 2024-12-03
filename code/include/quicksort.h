@@ -44,7 +44,6 @@ class Quicksort : public MultithreadedSort<T> {
 
         tasks.push(Task{&array, 0, (int)(array.size() - 1)});
         
-
         mutex.unlock();
 
         cv.notifyOne();
