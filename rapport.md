@@ -16,6 +16,8 @@
 - [Tests](#tests)
   - [Tests de l'algorithme de tri](#tests-de-lalgorithme-de-tri)
   - [Tests de concurrence](#tests-de-concurrence)
+  - [Résultats de nos tests](#résultats-de-nos-tests)
+- [Benchmark](#benchmark)
 - [Conclusion](#conclusion)
 
 # Introduction
@@ -57,6 +59,78 @@ Pour vérifier que notre programme fonctionne correctement en concurrence, on a 
 
 - on a lancé les tests de tri avec 0, 1000 et ´std::numeric_limits<int>::max()´ threads pour vérifier que le programme fonctionne correctement avec un nombre variable de threads.
 - on a lancé des tests avec des tableaux plus petits que le nombre de threads pour vérifier que le programme fonctionne correctement avec des threads inactifs.
+
+## Résultats de nos tests
+
+```bash
+
+[----------] Global test environment set-up.
+[----------] 16 tests from SortingTest
+[ RUN      ] SortingTest.Test1Thread
+[       OK ] SortingTest.Test1Thread (2 ms)
+[ RUN      ] SortingTest.Test2Threads
+[       OK ] SortingTest.Test2Threads (0 ms)
+[ RUN      ] SortingTest.Test4Threads
+[       OK ] SortingTest.Test4Threads (1 ms)
+[ RUN      ] SortingTest.Test8Threads
+[       OK ] SortingTest.Test8Threads (19 ms)
+[ RUN      ] SortingTest.Test16Threads
+[       OK ] SortingTest.Test16Threads (23 ms)
+[ RUN      ] SortingTest.Test16Threads2
+[       OK ] SortingTest.Test16Threads2 (13 ms)
+[ RUN      ] SortingTest.TestSize0
+[       OK ] SortingTest.TestSize0 (0 ms)
+[ RUN      ] SortingTest.TestSmallArrays
+[       OK ] SortingTest.TestSmallArrays (18 ms)
+[ RUN      ] SortingTest.TestLargeArrays
+[       OK ] SortingTest.TestLargeArrays (136611 ms)
+[ RUN      ] SortingTest.TestDuplicates
+[       OK ] SortingTest.TestDuplicates (2 ms)
+[ RUN      ] SortingTest.TestUniformArray
+[       OK ] SortingTest.TestUniformArray (5 ms)
+[ RUN      ] SortingTest.TestOrderedArray
+[       OK ] SortingTest.TestOrderedArray (1 ms)
+[ RUN      ] SortingTest.TestInvertedArray
+[       OK ] SortingTest.TestInvertedArray (3 ms)
+[ RUN      ] SortingTest.Test0Threads
+[       OK ] SortingTest.Test0Threads (8 ms)
+[ RUN      ] SortingTest.TestMaxThreads
+[       OK ] SortingTest.TestMaxThreads (0 ms)
+[ RUN      ] SortingTest.TestMaxAllowedThreads
+[       OK ] SortingTest.TestMaxAllowedThreads (596 ms)
+[----------] 16 tests from SortingTest (137312 ms total)
+
+[----------] Global test environment tear-down
+[==========] 16 tests from 1 test suite ran. (137312 ms total)
+[  PASSED  ] 16 tests.
+
+```
+
+# Benchmark
+
+Pour la benchmark, on a fait un test à 5'000'000 éléments
+
+```bash
+
+2024-12-03T21:34:50+01:00
+Running ./PCO_LAB05_benchmarks
+Run on (6 X 3193.91 MHz CPU s)
+CPU Caches:
+  L1 Data 32 KiB (x6)
+  L1 Instruction 32 KiB (x6)
+  L2 Unified 512 KiB (x6)
+  L3 Unified 16384 KiB (x1)
+Load Average: 0.71, 0.39, 0.15
+-------------------------------------------------------------------------
+Benchmark                               Time             CPU   Iterations
+-------------------------------------------------------------------------
+BM_QS_MANYTHREADS/1/real_time  5035947695 ns    190409419 ns            1
+BM_QS_MANYTHREADS/2/real_time  6087301537 ns    240792633 ns            1
+BM_QS_MANYTHREADS/4/real_time  8581520662 ns    219756537 ns            1
+BM_QS_MANYTHREADS/8/real_time  11169041640 ns    198524880 ns            1
+BM_QS_MANYTHREADS/16/real_time 4528929533 ns    199421505 ns            1
+
+```
 
 # Conclusion
 
