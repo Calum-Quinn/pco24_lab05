@@ -163,7 +163,19 @@ TEST(SortingTest, TestUniformArray) {
     testPreGenerated(nbThreads, array);
 }
 
+// Test already ordered array
+TEST(SortingTest, TestOrderedArray) {
+    int nbThreads = 4;
+    std::vector<int> array = {0,1,2,3,4,5,6,7,8,9};
+    testPreGenerated(nbThreads, array);
+}
 
+// Test inverted array
+TEST(SortingTest, TestInvertedArray) {
+    int nbThreads = 4;
+    std::vector<int> array = {9,8,7,6,5,4,3,2,1,0};
+    testPreGenerated(nbThreads, array);
+}
 
 //-----------------------------------------------------------------------------------------------------
 // THREAD TESTS
