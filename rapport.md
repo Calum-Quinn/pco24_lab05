@@ -22,7 +22,7 @@
 
 # Introduction
 
-Ce laboratoire a pour objectif d'explorer les principes de la programmation concurrente à travers l'implémentation de l'algorithme de tri rapide (Quicksort) en version multithreadée. Ce projet met en pratique la gestion des threads et la synchronisation via un moniteur de Mesa, permettant une répartition efficace des tâches de tri. Il s'inscrit dans une approche pédagogique visant à développer des compétences en conception et réalisation de programmes parallèles, tout en respectant des contraintes d'optimisation et de gestion des ressources.
+Ce laboratoire a pour objectif d'explorer les principes de la programmation concurrente à travers l'implémentation de l'algorithme de tri rapide (Quicksort) en version multithreadée. Ce projet met en pratique la gestion des threads et la synchronisation via un moniteur de Mesa, permettant une répartition efficace des tâches de tri.
 
 Les étapes du travail incluent la conception d'une solution capable d'exploiter un nombre défini de threads, l'intégration de mécanismes de synchronisation, et la vérification de l'efficacité à travers des tests et des benchmarks. Une attention particulière sera portée à la documentation du processus et des choix d'implémentation.
 
@@ -30,35 +30,86 @@ Les étapes du travail incluent la conception d'une solution capable d'exploiter
 
 Pour notre algorithme, nous nous sommes inspirés du modèle producteur-consommateur, où le producteur joue également le rôle de consommateur.
 
-Le thread principal crée les threads de travail qui effectueront le tri. Ces threads attendent leur tour grâce à un moniteur de Mesa. Le thread principal ajoute la première tâche dans une pile FIFO et réveille un thread pour qu'il commence à travailler. Enfin, le thread principal attend la fin du travail global à l'aide du même moniteur.
+Les étapes utilisées par le processus principal sont les suivantes:
 
-Les threads de travail suivent tous le même fonctionnement. Ils attendent un signal du moniteur de Mesa pour commencer leur tâche. Une fois réveillés, ils prennent la première tâche disponible dans la pile FIFO et entrent dans la fonction de tri.
+1. Le thread principal crée les threads de travail qui effectueront le tri.
+Ces threads attendent à chaque fois leur tour grâce à un moniteur de Mesa.
 
-Dans la fonction de tri, le thread vérifie si d'autres threads peuvent être réveillés. Si c'est possible, le travail restant est divisé en deux, et les deux nouvelles tâches sont ajoutées à la pile FIFO. Un autre thread est alors réveillé pour prendre en charge l'une des tâches. Si aucun thread n'est disponible, le thread en cours s'occupe directement de la tâche reçue en exécutant l'algorithme Quicksort.
+2. Le thread principal ajoute la première tâche dans un buffer FIFO et réveil un thread pour qu'il commence à travailler.
 
-Lorsqu'un thread termine son travail ou divise la tâche, il se retire de la liste des threads actifs et vérifie si le travail global est terminé. Si c'est le cas, il réveille le thread principal, qui pourra ordonner l'arrêt des threads. Si le travail n'est pas terminé, le thread prend une nouvelle tâche dans la pile FIFO et recommence le processus.
+3. Le thread principal attend ensuite la fin du travail global à l'aide d'un moniteur dont le seul but est de permettre aux threads de signaler la fin du tri.
+
+4. Lorsque le signal de fin de tri est reçu, le signal d'arrêt est envoyé à tous les threads pour qu'ils se terminent. Le thread principal attend ensuite la fin de chaque thread et se termine lui aussi.
+
+En ce qui concerne les threads qui effectuent réellement le tri, ils ont tous le même fonctionnement:
+
+1. Ils commencent par contrôler si le signal d'arrêt à été lancé et arrête leur exécution si c'est le cas.
+
+2. Sinon, ils attendent un signal du moniteur de Mesa pour indiquer qu'il y a au moins une tâche à faire pour commencer leur travail. Une fois réveillés, ils prennent la première tâche disponible dans le buffer FIFO et démarre la fonction de tri.
+
+3. Dans la fonction de tri, le thread effectue la partition standard du quicksort qui permet de calculer le pivot. Ensuite il ajoute deux tâches au buffer, chacune d'elle contenant une des deux parties du tableau qui sont passées récursivement à la fonction quicksort habituelle. Tous les threads en attente sont ensuite réveillés. (Nous n'en réveillons pas qu'un dû au fait que plusieurs tâches sont ajoutées)
+
+4. Une fois que le thread a ajouté les deux tâches au buffer, il sort de la fonction de tri avant de contrôler si le buffer contient des tâches en attente.
+
+5. Le thread contrôle s'il y a encore des autres threads actifs. Si c'est le cas il recommence sa fonction et attend le signal du moniteur pour continuer.
+
+6. Si le buffer est vide et aucun autre thread n'est encore actif, le thread envoi le signal de terminaison au processus principal.
 
 ## Choix d'implémentation
 
+Pour l'implémentation des moniteurs nous avons décidé d'utiliser le système producteurs/consommateurs car il se porte bien à l'idée de création et traitement des tâches de tri. Le choix des tâches est tiré directement du pseudo-code du quicksort qui appel récursivement la même fonction avec des sous-parties du tableau original.
 
+Nous avons décidé d'utiliser une `std::queue` pour stocker les tâches car il implémente déjà l'ordre FIFO. Ceci facilite donc l'ajout et la reprise des tâches avec les méthodes de la structure de données.
 
 # Tests
 
-On a fait 2 types de tests pour vérifier le bon fonctionnement de notre programme. Le premier groupe sont les tests en rapport avec le bon fonctionnement de l'algorithme de tri. Le deuxième groupe de tests sont en rapport avec la gestion des threads, la synchronisation et la concurrence.
+On a fait 2 types de tests pour vérifier le bon fonctionnement de notre programme. Le premier groupe représente les tests en rapport avec le bon fonctionnement de l'algorithme de tri. Le deuxième groupe de tests est en rapport avec la gestion des threads, la synchronisation et la concurrence.
 
 ## Tests de l'algorithme de tri
 
 Pour vérifier que notre algorithme de tri fonctionne correctement, on a fait les tests suivants :
 
-- Tests "simple" de tri avec des tableaux de tailles variées allant jusqu'à `std::numeric_limits<int>::max() / 100` éléments.
-- Tests de tri avec des tableaux déjà triés, inversés, avec des doublons ou avec seulement des éléments identiques.
+- Tests "simple" de tri avec des tableaux de tailles variées allant jusqu'à `std::numeric_limits<int>::max() / 100` ce qui représente environ 21'474'836 éléments.
+  - Taille 1-10
+  - Taille 21'474'836-21'474'840
+  - Taille 0
+
+  But: _contrôler que la taille du tableau n'a aucun effet sur le bon fonctionnement de l'algorithme de tri_.
+
+  Spécificités: _Il a fallu ajouter le code du test `testSize0` pour implémenter la nécessité d'un array vide à la fin du "tri"_.
+
+- Tests de tri avec des tableaux particuliers.
+  - Déjà trié
+  - Déjà trié mais en sens inverse
+  - Avec des doublons
+  - Avec que le même nombre (uniforme)
+
+  But: _contrôler que la forme du tableau, e.g. ordre ou choix des éléments, n'a aucun effet négatif_.
+
+  Spécificités: _Il a fallu ajouter le code du test `testPreGenerated` pour pouvoir contrôler manuellement le contenu du tableau à trier_.
 
 ## Tests de concurrence
 
 Pour vérifier que notre programme fonctionne correctement en concurrence, on a fait les tests suivants :
 
-- on a lancé les tests de tri avec 0, 1000 et ´std::numeric_limits<int>::max()´ threads pour vérifier que le programme fonctionne correctement avec un nombre variable de threads.
-- on a lancé des tests avec des tableaux plus petits que le nombre de threads pour vérifier que le programme fonctionne correctement avec des threads inactifs.
+- Tests "simple" de tri avec différents nombres de threads (basé sur les quantités utilisées dans les benchmarks).
+  - 1 thread
+  - 2 threads
+  - 4 threads
+  - 8 threads
+  - 16 threads
+
+  But: _contrôler que le nombre de threads n'a aucun effet sur le bon fonctionnement de l'algorithme de tri_.
+
+- Tests de nombres particuliers de threads.
+  - Plus de threads que d'éléments à triés
+  - 0 threads
+  - 1000 threads (nombre maximum choisi aléatoirement)
+  - `std::numeric_limits<int>::max()` threads
+
+  But: _Vérifier que le nombre de threads n'impacte pas le tri correct du tableau_.
+
+  Spécificités: _Le code du test `testInvalidThreads` a dû être ajouté afin de gérer les exceptions lancées lors de la construction du `Quicksort`_.
 
 ## Résultats de nos tests
 
@@ -108,10 +159,9 @@ Pour vérifier que notre programme fonctionne correctement en concurrence, on a 
 
 # Benchmark
 
-Pour la benchmark, on a fait un test à 5'000'000 éléments
+Pour les benchmark, on a fait nos mesures avec 5'000'000 éléments par défaut.
 
 ```bash
-
 2024-12-03T21:34:50+01:00
 Running ./PCO_LAB05_benchmarks
 Run on (6 X 3193.91 MHz CPU s)
@@ -129,10 +179,18 @@ BM_QS_MANYTHREADS/2/real_time  6087301537 ns    240792633 ns            1
 BM_QS_MANYTHREADS/4/real_time  8581520662 ns    219756537 ns            1
 BM_QS_MANYTHREADS/8/real_time  11169041640 ns    198524880 ns            1
 BM_QS_MANYTHREADS/16/real_time 4528929533 ns    199421505 ns            1
-
 ```
+
+Il est compliqué de savoir si le code est le plus efficace possible car nous n'avons que pu comparer avec nous même.
+
+L'avantage par contre est que les benchmarks nous permettent de savoir si une version de notre algorithme est plus efficace qu'une autre.
 
 # Conclusion
 
+L'algorithme a été séparée en deux parties principales qui sont le processus principal qui gère les threads de "travail" ainsi que les threads qui effectuent réellement le tri séparé en tâches.
+
+Les moniteurs de type Mesa sont utilisés pour implémenter un système de producteurs/consommateurs pour la gestion des tâches bufferisées.
+
+Les programmes benchmarks et tests nous ont permis de vérifier le bon fonction et l'efficacité de l'algorithme au fil du développement.
 
 </div>
