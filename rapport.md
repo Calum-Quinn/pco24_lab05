@@ -18,6 +18,8 @@
   - [Tests de concurrence](#tests-de-concurrence)
   - [Résultats de nos tests](#résultats-de-nos-tests)
 - [Benchmark](#benchmark)
+  - [Résultats des benchmarks](#résultats-des-benchmarks)
+  - [Analyse des résultats](#analyse-des-résultats)
 - [Conclusion](#conclusion)
 
 # Introduction
@@ -159,7 +161,11 @@ Pour vérifier que notre programme fonctionne correctement en concurrence, on a 
 
 # Benchmark
 
+## Résultats des benchmarks
+
 Pour les benchmark, on a fait nos mesures avec 5'000'000 éléments par défaut.
+
+Avec 6 cœurs, on a obtenu les résultats suivants:
 
 ```bash
 2024-12-03T21:34:50+01:00
@@ -181,9 +187,59 @@ BM_QS_MANYTHREADS/8/real_time  11169041640 ns    198524880 ns            1
 BM_QS_MANYTHREADS/16/real_time 4528929533 ns    199421505 ns            1
 ```
 
+Avec 8 cœurs, on a obtenu les résultats suivants:
+
+```bash
+2024-12-08T17:07:14+01:00
+Running ./PCO_LAB05_benchmarks
+Run on (8 X 3600 MHz CPU s)
+CPU Caches:
+  L1 Data 32 KiB (x8)
+  L1 Instruction 32 KiB (x8)
+  L2 Unified 256 KiB (x8)
+  L3 Unified 16384 KiB (x8)
+Load Average: 0.88, 0.89, 0.50
+-------------------------------------------------------------------------
+Benchmark                               Time             CPU   Iterations
+-------------------------------------------------------------------------
+BM_QS_MANYTHREADS/1/real_time  4506367308 ns    179581665 ns            1
+BM_QS_MANYTHREADS/2/real_time  5543833629 ns    177624502 ns            1
+BM_QS_MANYTHREADS/4/real_time  8743797248 ns    182073802 ns            1
+BM_QS_MANYTHREADS/8/real_time  11248056772 ns    175554711 ns            1
+BM_QS_MANYTHREADS/16/real_time 6280193388 ns    184946058 ns            1
+```
+
+Ensuite on a fait des benchmarks avec 5'000 éléments avec 8 cœurs:
+
+```bash
+2024-12-08T17:11:00+01:00
+Running ./PCO_LAB05_benchmarks
+Run on (8 X 3600 MHz CPU s)
+CPU Caches:
+  L1 Data 32 KiB (x8)
+  L1 Instruction 32 KiB (x8)
+  L2 Unified 256 KiB (x8)
+  L3 Unified 16384 KiB (x8)
+Load Average: 0.83, 0.84, 0.57
+-------------------------------------------------------------------------
+Benchmark                               Time             CPU   Iterations
+-------------------------------------------------------------------------
+BM_QS_MANYTHREADS/1/real_time     4746760 ns       513040 ns          147
+BM_QS_MANYTHREADS/2/real_time     9185617 ns       858406 ns           87
+BM_QS_MANYTHREADS/4/real_time    11338751 ns       880581 ns           62
+BM_QS_MANYTHREADS/8/real_time    15132855 ns      2417156 ns           42
+BM_QS_MANYTHREADS/16/real_time   24591277 ns      3618174 ns           28
+```
+
+## Analyse des résultats
+
 Il est compliqué de savoir si le code est le plus efficace possible car nous n'avons que pu comparer avec nous même.
 
 L'avantage par contre est que les benchmarks nous permettent de savoir si une version de notre algorithme est plus efficace qu'une autre.
+
+Ce que l'on peut voir c'est que le temps de tri augmente avec le nombre de threads. Cela est probablement dû au fait qu'on a un seul mutex pour la synchronisation des threads. Donc au final, un seul thread peut travailler à la fois. 
+
+On a aussi fait des tests avec une version qui crée les tâches et libère ensuite les threads pour qu'ils puissent traiter les tâches. Cette version a été beaucoup plus rapide, car chaque thread a reçu une tâche de taille similaire. Mais cette version n'était pas conforme à l'énoncé du laboratoire d'après notre compréhension, donc nous avons décidé de ne pas la garder.
 
 # Conclusion
 
